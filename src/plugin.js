@@ -5,9 +5,10 @@
  *
  * See README.md "Plugin interface" for the full contract, src/examples/ for two complete worked
  * examples (delete that directory once you no longer need it — see README.md "Adding your own
- * plugin"), and src/view-plugin.d.ts for the types referenced below.
+ * plugin"), and the @ogc/bblocks-viewer-plugin-types import below (a devDependency — see
+ * README.md "Plugin interface") for the types referenced.
  *
- * @implements {import('./view-plugin').ViewPluginClass}
+ * @implements {import('@ogc/bblocks-viewer-plugin-types').ViewPluginClass}
  */
 export default class MyPlugin {
   // MIME types this plugin might handle — required. Supports wildcards ('text/*', '*/*').
@@ -18,8 +19,8 @@ export default class MyPlugin {
   static icon = 'mdi-puzzle-outline';
 
   /**
-   * @param {import('./view-plugin').ViewPluginCandidate[]} candidates
-   * @param {import('./view-plugin').ViewPluginContext} [context]
+   * @param {import('@ogc/bblocks-viewer-plugin-types').ViewPluginCandidate[]} candidates
+   * @param {import('@ogc/bblocks-viewer-plugin-types').ViewPluginContext} [context]
    */
   constructor(candidates, context = {}) {
     this.candidates = candidates;

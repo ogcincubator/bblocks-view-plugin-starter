@@ -1,10 +1,11 @@
 // Sample view plugin, TypeScript variant — a collapsible tree view for JSON/JSON-LD content. No
 // third-party dependency needed here, so unlike csv-table-plugin.js there's nothing to
-// lazy-import; it exists to show the TS side of the same interface (see ../view-plugin.d.ts), not to
-// add a second technique. Pick whichever of the two samples matches how you'd rather write your
-// own plugin — the build output and the interface contract are identical either way.
+// lazy-import; it exists to show the TS side of the same interface (see the
+// @ogc/bblocks-viewer-plugin-types import below), not to add a second technique. Pick whichever of the
+// two samples matches how you'd rather write your own plugin — the build output and the interface
+// contract are identical either way.
 
-import type { ViewPluginCandidate, ViewPluginClass, ViewPluginContext } from '../view-plugin';
+import type { ViewPluginCandidate, ViewPluginClass, ViewPluginContext } from '@ogc/bblocks-viewer-plugin-types';
 
 export default class JsonTreePlugin {
   static supportedTypes = ['application/json', 'application/ld+json'];

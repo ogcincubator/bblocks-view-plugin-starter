@@ -24,15 +24,15 @@ function injectCss() {
   cssInjected = true;
 }
 
-/** @implements {import('../view-plugin').ViewPluginClass} */
+/** @implements {import('@ogc/bblocks-viewer-plugin-types').ViewPluginClass} */
 export default class CsvTablePlugin {
   static supportedTypes = ['text/csv'];
   static viewName = 'Table';
   static icon = 'mdi-table';
 
   /**
-   * @param {import('../view-plugin').ViewPluginCandidate[]} candidates
-   * @param {import('../view-plugin').ViewPluginContext} [context]
+   * @param {import('@ogc/bblocks-viewer-plugin-types').ViewPluginCandidate[]} candidates
+   * @param {import('@ogc/bblocks-viewer-plugin-types').ViewPluginContext} [context]
    */
   constructor(candidates, context = {}) {
     // Candidates carry whatever content the host already resolved; a null-content candidate (not

@@ -4,9 +4,9 @@
 //
 // See README.md "Plugin interface" for the full contract, src/examples/ for two complete worked
 // examples (delete that directory once you no longer need it — see README.md "Adding your own
-// plugin"), and src/view-plugin.d.ts for the types referenced below.
+// plugin"), and the @ogc/bblocks-viewer-plugin-types import below for the types referenced.
 
-import type { ViewPluginCandidate, ViewPluginClass, ViewPluginContext } from './view-plugin';
+import type { ViewPluginCandidate, ViewPluginClass, ViewPluginContext } from '@ogc/bblocks-viewer-plugin-types';
 
 export default class MyPlugin {
   // MIME types this plugin might handle — required. Supports wildcards ('text/*', '*/*').
