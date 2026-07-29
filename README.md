@@ -23,6 +23,9 @@ It contains:
 - A build setup (`vite.config.js`) producing a single deployable `dist/index.js`, mirroring what
   [`bblocks-viewer-base-plugins`](https://github.com/ogcincubator/bblocks-viewer-base-plugins)
   (the viewer's own first-party plugins) uses.
+- `.github/workflows/publish-dist.yml` — builds `dist/` and publishes it to jsDelivr's GitHub CDN
+  on every push to `master`, so your plugin has a stable, CORS-enabled URL to declare in a register
+  without setting up any hosting yourself. See "Hosting `dist/` via jsDelivr" below.
 
 See `bblocks-viewer-base-plugins` for real, production plugins (map/3D/web view) built against
 this same interface, if you want a larger reference beyond the two examples here.
@@ -345,6 +348,38 @@ viewer:
   browser's module cache dedupes the actual fetch by URL either way, so there's no cost to
   splitting one bundle across several entries if you'd rather declare weights per-plugin.
 
+### Hosting `dist/` via jsDelivr
+
+This template ships `.github/workflows/publish-dist.yml`, which builds `dist/` and publishes it to
+jsDelivr's GitHub CDN mode on every push to `master` — so as soon as you push, your plugin has a
+real, CORS-enabled URL to put in a register's `view-plugins.url`:
+
+```
+https://cdn.jsdelivr.net/gh/<your-org>/<your-repo>@dist/index.js
+```
+
+No GitHub Pages setup, no separate hosting account. It works by pushing the built `dist/` output
+(which stays gitignored on `master`, same as always) to a dedicated `dist` branch — orphan history,
+force-pushed on every run, so that branch never accumulates history or diverges from what CI just
+built — then hitting jsDelivr's purge endpoint for the changed files so the CDN doesn't keep serving
+a stale cached copy for its usual cache lifetime.
+
+A few things worth knowing:
+
+- **It publishes on every push to `master` by default.** There's no tag or release gate — if that's
+  not what you want (e.g. you'd rather consumers pin to a reviewed release instead of whatever's
+  currently on `master`), edit the workflow's `on:` trigger yourself, e.g. `on: push: tags: ['v*']`
+  instead of `branches: [master]`. This template doesn't implement that for you since it depends on
+  whether you're versioning releases at all.
+- The `dist` branch is a CDN target, not something meant for humans to read or `git checkout` — it's
+  rewritten from scratch on every publish, so don't build on top of it or expect its history to mean
+  anything.
+- jsDelivr's `gh` CDN mode only covers real `user/repo` GitHub repositories, not gists (see the FAQ
+  below) — if your plugin doesn't live in its own repo, you'll need a different hosting option.
+- Prefer pinning consumers to a commit or tag over the moving `@dist` branch reference once your
+  plugin is stable — see [jsDelivr's docs](https://www.jsdelivr.com/documentation) on `@` version
+  syntax for GitHub-sourced files.
+
 ## FAQ
 
 **Why do I need to bundle my own dependencies instead of the viewer providing common ones?**
@@ -357,9 +392,10 @@ Serve `dist/` from any local static file server and point a local bblocks-viewer
 register config at `http://localhost:<port>/index.js`. A few hosting options **don't** work: a
 GitHub Gist's raw URL fails (GitHub serves gist raw content as `text/plain` unconditionally,
 regardless of extension, and browsers refuse that as a module script), and jsDelivr's `gh` CDN path
-doesn't cover gists either (only real `user/repo` GitHub repositories). Regular GitHub Pages (a
-real repo, not a gist) works. Simplest for local dev: same-origin — serve the plugin file from the
-same static server as the register/build directory you're testing against.
+doesn't cover gists either (only real `user/repo` GitHub repositories — see "Hosting `dist/` via
+jsDelivr" above for that path once you've pushed to a real repo). Simplest for local dev:
+same-origin — serve the plugin file from the same static server as the register/build directory
+you're testing against.
 
 **My plugin's host page must serve `dist/` with CORS enabled — why?** The viewer loads plugin
 modules via a runtime, cross-origin `import()`. GitHub Pages sends permissive CORS headers by
