@@ -71,7 +71,7 @@ class MyPlugin {
   // '*/*'). Required.
   static supportedTypes = ['application/geo+json'];
 
-  // Tab label. Optional — falls back to the class name.
+  // Tab label. Required — also used to generate the tab's shareable link.
   static viewName = 'Map';
 
   // MDI icon name for the tab (e.g. 'mdi-map'). Optional — falls back to 'mdi-puzzle-outline'.
@@ -402,9 +402,21 @@ modules via a runtime, cross-origin `import()`. GitHub Pages sends permissive CO
 default, which covers the common case of a register hosted there; a different static host may need
 explicit configuration.
 
-**What happens if my plugin throws, or fails to load?** The host logs a console warning and skips
-the tab — no user-facing error, and no effect on any other plugin. Applies to import failures
-(bad URL, CORS), and to exceptions thrown from your `matches()`/`render()`.
+**What happens if my plugin throws, or fails to load?** Depends on when. Import failures (bad URL,
+CORS) and exceptions from `matches()` fail silently — a console warning, no tab, no effect on any
+other plugin. An exception thrown synchronously from `render()` is different: the host catches it,
+tears down whatever got mounted, and shows a visible error banner in place of the tab content (in
+addition to a console error) — because by that point the tab is already open and a blank box with
+no explanation is worse than an ugly one. This only covers synchronous throws, though: an error from
+inside your own async work (a rejected promise your `render()` doesn't await/catch, a
+`requestAnimationFrame` loop, an event handler) happens outside anything the host can catch, so
+**your plugin is responsible for catching and surfacing those itself** — see the next question.
+
+**How do I debug my plugin while developing it?** Keep the browser devtools console open — it's
+where anything the host can't attribute to your plugin (an uncaught rejection from your own async
+code, an error thrown deep inside a `requestAnimationFrame` loop) will surface, often *only* there,
+with no visible sign in the UI otherwise. Worth checking first whenever a view renders blank or
+looks wrong with no on-page error.
 
 **Can one bundle ship more than one plugin?** Yes — export more than one class as named exports
 from `src/index.ts` and list them all in `export:` (see "Declaring plugins" above).

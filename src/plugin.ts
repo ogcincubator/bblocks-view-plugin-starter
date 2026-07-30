@@ -12,8 +12,9 @@ export default class MyPlugin {
   // MIME types this plugin might handle — required. Supports wildcards ('text/*', '*/*').
   static supportedTypes: string[] = [];
 
-  // Tab label and icon shown to the user — optional, both have host-side fallbacks.
+  // Tab label — required, also used to generate the tab's shareable link.
   static viewName = 'My view';
+  // Tab icon — optional, has a host-side fallback.
   static icon = 'mdi-puzzle-outline';
 
   private readonly candidates: ViewPluginCandidate[];
