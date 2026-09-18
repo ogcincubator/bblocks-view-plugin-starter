@@ -1,9 +1,16 @@
 # bblocks-view-plugin-starter
 
 A starter template for building [bblocks-viewer](https://github.com/opengeospatial/bblocks-viewer)
-**view plugins** — small client-side modules that add a custom visualization tab for an example
-snippet or a transform output (e.g. rendering GeoJSON on a map, or CSV as a table), without that
-code living inside bblocks-viewer's own source tree.
+plugins — small client-side modules that extend the bblock detail view without that code living
+inside bblocks-viewer's own source tree. Two related but separate mechanisms live under this one
+template (see "Tab plugins" below for why they're kept separate rather than unified):
+
+- **View plugins** — add a custom visualization for one example snippet or one transform output
+  (e.g. rendering GeoJSON on a map, or CSV as a table). This is the template's primary focus:
+  `src/plugin.ts`/`src/plugin.js` skeletons, `npm run build`/`typecheck`, and most of this README
+  are about view plugins specifically.
+- **Tab plugins** — add a whole new top-level tab to a bblock's detail page, driven by the full
+  bblock/register rather than a single candidate. See "Tab plugins" below.
 
 This repo is meant to be **cloned and its contents replaced with your own** — click
 ["Use this template"](https://github.com/ogcincubator/bblocks-view-plugin-starter) on GitHub, or
@@ -17,9 +24,10 @@ It contains:
   from [`bblocks-viewer-plugin-types`](https://github.com/ogcincubator/bblocks-viewer-plugin-types)
   (the canonical, dependency-free source) — referenced by both skeletons, and by your own plugin,
   for editor autocomplete and type checking. See "Plugin interface" below.
-- `src/examples/` — two complete, working reference plugins (a JSON tree view and a CSV table
-  view) — **not** wired into the build by default, and meant to be deleted once you've read them.
-  See "Adding your own plugin" below.
+- `src/examples/` — four complete, working reference plugins: two view plugins (a JSON tree view
+  and a CSV table view) and two tab plugins (a plain-JS "Used by" reverse-dependency tab and a
+  TS+Vue "Register info" tab — see "Tab plugins" below) — **not** wired into the build by default,
+  and meant to be deleted once you've read them. See "Adding your own plugin" below.
 - A build setup (`vite.config.js`) producing a single deployable `dist/index.js`, mirroring what
   [`bblocks-viewer-base-plugins`](https://github.com/ogcincubator/bblocks-viewer-base-plugins)
   (the viewer's own first-party plugins) uses.
@@ -338,15 +346,22 @@ viewer:
     - url: https://your-host/dist/index.js
       export: MyPlugin
       weight: 100
+  tab-plugins:
+    - url: https://your-host/dist/index.js
+      export: MyTabPlugin
+      weight: 100
 ```
 
 - `export` may be a single name, an array of names (if your bundle ships more than one plugin
   class), or omitted/`null`/`""`/`[]` to take the module's default export.
 - `weight` (optional, default `0`) controls tab ordering among plugin tabs — higher sorts earlier.
-  bblocks-viewer's own built-in plugins (map/3D/web) always sort first regardless of weight.
+  bblocks-viewer's own built-in view plugins (map/3D/web) always sort first regardless of weight;
+  tab plugins always sort after every built-in tab, but only relative to `weight` among themselves.
 - Multiple config entries can point at the same `url` with different `export` values; the
   browser's module cache dedupes the actual fetch by URL either way, so there's no cost to
-  splitting one bundle across several entries if you'd rather declare weights per-plugin.
+  splitting one bundle across several entries if you'd rather declare weights per-plugin. A single
+  bundle/URL can also mix view-plugin and tab-plugin classes, declared separately under
+  `view-plugins`/`tab-plugins` — see "Tab plugins" above.
 
 ### Hosting `dist/` via jsDelivr
 
@@ -429,6 +444,81 @@ page they control. Render directly into the `<div>` you're given.
 arguments — it's a yes/no on the whole instance (which already has `this.candidates` from the
 constructor), not a per-candidate filter. Pick which candidate(s) you actually want in the
 constructor; `matches()` just decides whether to show a tab at all.
+
+## Tab plugins
+
+A **tab plugin** adds a whole new top-level tab to a bblock's detail page — not a view inside an
+existing example/transform-output slot the way a view plugin does. A register declares one the
+same way it declares a view plugin (a sibling `viewer.tab-plugins` key — see "Declaring plugins in
+a register" above), and the plugin decides, given the full bblock and its register, whether it
+applies at all.
+
+Deliberately a **separate, parallel contract** from the view-plugin one above, not a
+generalization of it, because the inputs differ in kind: a tab plugin's constructor receives one
+`TabPluginContext` object carrying the *whole* bblock and register (there's nothing to eagerly
+fetch/normalize the way view-plugin candidates are), and `render(el)` owns the *entire* tab body,
+not a small chrome-wrapped box. See bblocks-viewer's own `.claude/tab-plugins-design.md` for the
+full design rationale if you want it.
+
+```ts
+class MyTabPlugin {
+  // Route `section` slug and Vue/DOM key — required for a stable link across rebuilds (same
+  // reason `viewName` is required for view plugins). Recoverable if missing (the host synthesizes
+  // one from tabLabel), but declare it explicitly.
+  static tabId = 'my-tab';
+  // v-tab display text — required, no placeholder fallback.
+  static tabLabel = 'My Tab';
+  // MDI icon name — optional, same host-side fallback as view plugins.
+  static icon = 'mdi-puzzle-outline';
+  // Ordering among other matched tab plugins for the same bblock — optional, default 0, higher
+  // sorts first. Tab plugins always render after every built-in tab.
+  static weight = 0;
+  // Whether the instance + rendered DOM persist across same-bblock tab switches (default) or are
+  // torn down/rebuilt every time the tab is left/reactivated — set false only for something
+  // holding a live connection/poller that shouldn't run in the background.
+  static cacheable = true;
+
+  constructor(context) {
+    this.context = context; // { bblock, register, viewerConfig, depResolver, fetchDocument, fetchDocumentByUrl, getBBlock, getBBlocks }
+  }
+
+  // Whole-context predicate — not bound to checking a single field. May be async.
+  async matches() { return true; }
+
+  // el: an empty container for the *entire* tab body — no fullscreen-toggle chrome provided.
+  render(el) { /* mount here */ }
+
+  destroy(el) {}
+}
+```
+
+Two worked examples in `src/examples/` show both languages, the same way the view-plugin examples
+do:
+
+- `dependents-tab-plugin.js` (plain JS) — a "Used by" tab listing every other bblock in the
+  register that depends on this one. Its `matches()` is async and content-based (only matches if
+  something actually depends on this bblock), using `context.getBBlocks` — the same
+  "real check, not just accept unconditionally" spirit as `csv-table-plugin.js`'s `matches()`.
+- `register-info-tab-plugin.ts` (TS+Vue) — a "Register info" tab showing the bblock's parent
+  register's name/url/imports, with a small reactive raw-JSON toggle. `render(el)` calls
+  `createApp(RegisterInfoTab, { register: ... }).mount(el)`; `destroy()` calls `app.unmount()`.
+  Confirms `render(el)`/`destroy(el)` is a plain DOM-element handoff regardless of plugin kind — a
+  tab plugin can mount any framework into `el` exactly like a view plugin could (e.g.
+  `bblocks-viewer-base-plugins`' `ThreeDPlugin` mounting Three.js the same way), bundling its own
+  copy of that framework (`vue` is a real `dependencies` entry in this template's `package.json`,
+  not a peer dependency the host provides) rather than assuming the host's runtime — see "Third-
+  party dependencies" above, which applies identically to tab plugins.
+
+`register-info-tab-plugin.ts` needs Vite's `@vitejs/plugin-vue` to compile its `.vue` SFC — already
+wired into `vite.config.js` — and `src/examples/vite-env.d.ts` carries a minimal ambient
+`declare module '*.vue'` so plain `tsc` (this template doesn't use `vue-tsc`) can resolve the
+import without erroring; a plugin doing more Vue work than this template's single demo component
+would likely want `vue-tsc` for real SFC type-checking instead.
+
+There's no dedicated `src/tab-plugin.ts`/`.js` starting-point skeleton (unlike view plugins'
+`src/plugin.ts`/`.js`) — copy whichever of the two examples above is closer to what you're
+building and strip it down, the same way you'd start from `src/examples/json-tree-plugin.ts` for a
+view plugin if the bare `src/plugin.ts` skeleton felt too thin.
 
 ## Related repos
 
